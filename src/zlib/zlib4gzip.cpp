@@ -68,6 +68,68 @@ bool UnGzip(const std::string& source, std::string& dst)
 }
 
 
+bool GZip(const std::string& content, std::string& str)
+{
+	int ret, flh;
+	unsigned have;
+	z_stream strm;
+	unsigned char in[CHUNK];
+	unsigned char out[CHUNK];
+
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+
+	ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION,Z_DEFLATED, 31,8,Z_DEFAULT_STRATEGY);
+	if (ret != Z_OK)
+		return false;
+
+	Bytef* buf = reinterpret_cast<Bytef*>(const_cast<char*>(content.c_str()));
+	uLong tsz = content.size();
+	uLong flag = 0;
+
+	do {		
+		strm.avail_in = tsz - flag > CHUNK ? CHUNK : tsz - flag;
+		flh = strm.avail_in == CHUNK ? Z_NO_FLUSH : Z_FINISH;
+		memset(in, 0, strm.avail_in);
+		memcpy(in, buf + flag, strm.avail_in);
+		flag += strm.avail_in;
+		strm.next_in = in;
+
+		do 
+		{
+			strm.avail_out = CHUNK;
+			strm.next_out = out;
+
+			ret = deflate(&strm, flh);
+			if (ret == Z_STREAM_ERROR)
+			{
+				return false;
+			}
+			if (ret != Z_OK && ret != Z_STREAM_END)
+			{
+				return false;
+			}
+
+			have = CHUNK - strm.avail_out;
+
+			char* dst = reinterpret_cast<char*>(out);
+			str.insert(str.end(), dst, dst + have);
+
+		} while (strm.avail_out == 0 || ret != Z_STREAM_END);
+		if (flag == tsz)
+		{
+			break;
+		}
+
+	} while (ret != Z_STREAM_END);
+
+	(void)deflateEnd(&strm);
+
+	return true;
+}
+
+
 int main()
 {
 	std::string stm, dst;
@@ -87,7 +149,8 @@ int main()
 	std::string s(pbuf, pbuf + sz);
 	
 
-	bool b_ok = UnGzip(s, dst);
+	bool b_ok = false;
+	b_ok = UnGzip(s, dst);
 
 	if (b_ok)
 	{
@@ -95,6 +158,23 @@ int main()
 		fs.open("e:/fdd2.jpg", std::ios::out | std::ios::binary);
 		fs.write(dst.c_str(), dst.size());
 		fs.close();
+	}
+
+
+	ifstream fs("e:/11.jpg", std::ios::binary);
+	std::istreambuf_iterator<char> beg(fs), end;
+	std::string str_content(beg, end);
+	fs.close();
+	
+	std::string str_zip;
+	b_ok = GZip(str_content, str_zip);
+
+	if (b_ok)
+	{
+		fstream ff;
+		ff.open("e:/11_.jpg.gz", std::ios::binary | std::ios::out);
+		ff.write(str_zip.c_str(), str_zip.size());
+		ff.close();
 	}
 
 	return 0;
