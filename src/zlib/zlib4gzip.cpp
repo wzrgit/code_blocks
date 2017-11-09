@@ -116,7 +116,7 @@ bool GZip(const std::string& content, std::string& str)
 			char* dst = reinterpret_cast<char*>(out);
 			str.insert(str.end(), dst, dst + have);
 
-		} while (strm.avail_out == 0 || ret != Z_STREAM_END);
+		} while (strm.avail_out == 0);
 		if (flag == tsz)
 		{
 			break;
